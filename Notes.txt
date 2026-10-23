@@ -1,0 +1,376 @@
+========================================================================
+ php2shell EXPOSURE SCANNER - INSTALLATION AND USAGE NOTES
+ CVE-2026-109618 (RCE via OOM memory corruption)
+ CVE-2026-109619 (RCE via stale global state / use-after-free)
+========================================================================
+
+Target platform: Kali Purple with the Metasploit Framework.
+
+WARNING: Use this module only against systems you own or have explicit,
+written authorisation to test. Unauthorised scanning is illegal in most
+jurisdictions. The module is deliberately non-intrusive, but it still makes
+network requests and records findings.
+
+use auxiliary/scanner/http/php2shell_exposure
+msf auxiliary(scanner/http/php2shell_exposure) > show options
+
+Module options (auxiliary/scanner/http/php2shell_exposure):
+
+   Name             Current Setting  Required  Description
+   ----             ---------------  --------  -----------
+   CONNECT_TIMEOUT  10               yes       Seconds to wait for the HTTP connection to be est
+                                               ablished
+   Proxies                           no        A proxy chain of format type:host:port[,type:host
+                                               :port][...]. Supported proxies: socks5, socks5h,
+                                               sapni, http, socks4
+   READ_TIMEOUT     20               yes       Seconds to wait for an HTTP response
+   RHOSTS                            yes       The target host(s), see https://docs.metasploit.c
+                                               om/docs/using-metasploit/basics/using-metasploit.
+                                               html
+   RPORT            80               yes       The target port (TCP)
+   SSL              false            no        Negotiate SSL/TLS for outgoing connections
+   TARGETURI        /                yes       Base path of the PHP application to assess
+   THREADS          1                yes       The number of concurrent threads (max one per hos
+                                               t)
+   VHOST                             no        HTTP server virtual host
+
+
+View the full module info with the info, or info -d command.
+
+msf auxiliary(scanner/http/php2shell_exposure) > set RHOST 192.168.43.218
+RHOST => 192.168.43.218
+msf auxiliary(scanner/http/php2shell_exposure) > exploit
+
+
+[!] 192.168.43.218:80     PHP detected but the version is concealed -> INCONCLUSIVE (cannot determine patched or vulnerable from this response)
+[+] 192.168.43.218:80     The service is running, but could not be validated. PHP detected; version concealed; exposure INCONCLUSIVE (confirm locally)
+[*] Scanned 1 of 1 hosts (100% complete)
+[*] Auxiliary module execution completed
+msf auxiliary(scanner/http/php2shell_exposure) > 
+
+
+
+------------------------------------------------------------------------
+1. WHAT THIS MODULE DOES (AND DOES NOT DO)
+------------------------------------------------------------------------
+
+The module is an auxiliary scanner (Msf::Auxiliary, not an exploit). It:
+
+  * issues at most two benign HTTP GET requests per target
+      - the configured TARGETURI, and (only if that shows no PHP)
+      - the site root "/"
+  * reads response headers (X-Powered-By, Server, Set-Cookie) and any
+    obvious PHP body marker
+  * compares any *disclosed* PHP version against the vendor-published
+    affected/fixed matrix
+  * records the HTTP service, a note and (for version evidence in the
+    affected range) a vulnerability entry using standard reporting
+
+The module does NOT, and must never be modified to:
+
+  * execute commands, upload/deliver payloads, or spawn sessions
+  * trigger memory corruption, use-after-free, OOM or any crash
+  * send oversized/multipart requests meant to exhaust resources
+  * perform denial-of-service or any destructive test
+
+IMPORTANT: this module CANNOT prove remote code execution. It is a
+version-evidence check only. A "possibly exposed" result means the
+disclosed PHP version falls inside the vendor's affected range; it does
+not confirm exploitability.
+
+
+------------------------------------------------------------------------
+2. VENDOR FACTS USED (source of truth)
+------------------------------------------------------------------------
+
+From the PHP security advisories and the referenced advisories:
+
+  Fixed releases   : 8.5.12, 8.4.27, 8.3.36, 8.2.35
+  Affected (8.x)   : versions below the matching fixed release, i.e.
+                     < 8.5.12, < 8.4.27, < 8.3.36, < 8.2.35
+  Affected (EOL)   : PHP 8.1 and older (end-of-life; source backports
+                     were published for 7.4, 8.0 and 8.1)
+  CVSS v4          : 9.2 (Critical) for both CVEs
+  Disclosed        : 2026-10-21
+
+References:
+  [1] CVE-2026-109619 advisory (stale global state)
+      https://github.com/php/php-src/security/advisories/GHSA-6wmf-4rv5-p3rp
+  [2] CVE-2026-109618 advisory (OOM corruption)
+      https://github.com/php/php-src/security/advisories/GHSA-w8hw-w9fx-j79w
+  [3] PHP release announcement
+      https://www.php.net/archive/2026.php#2026-10-21-5
+  [4] Rapid7 Emergent Threat Response blog
+      https://www.rapid7.com/blog/post/etr-cve-2026-109618-and-cve-2026-109619-critical-unauthenticated-remote-code-execution-in-php/
+  [5] NCSC-NL operational repository (php2shell)
+      https://github.com/NCSC-NL/php2shell
+  [6] NHS England cyber alert CC-4875
+      https://digital.nhs.uk/cyber-alerts/2026/cc-4875
+  [7] CERT-EU Security Advisory 2026-018
+      https://cert.europa.eu/publications/security-advisories/2026-018/
+
+
+------------------------------------------------------------------------
+3. FILES IN THIS PACKAGE
+------------------------------------------------------------------------
+
+  php2shell_exposure.rb                 the Metasploit module
+  spec/php2shell_exposure_spec.rb       RSpec tests (local mock HTTP server)
+  install.sh                            installer
+  Notes.txt                             this file
+
+
+------------------------------------------------------------------------
+4. WHERE THE FILES GO
+------------------------------------------------------------------------
+
+Metasploit loads modules from two places:
+
+  (a) The framework tree (system install):
+        /usr/share/metasploit-framework/modules/auxiliary/scanner/http/
+      (also seen as /opt/metasploit-framework/... or a snap path)
+
+  (b) Your per-user module directory (no root required):
+        ~/.msf4/modules/auxiliary/scanner/http/
+
+  Snap installs are read-only and confined, so they use a different
+  per-user directory. For the snap, put the module under:
+        ~/snap/metasploit-framework/common/.msf4/modules/auxiliary/scanner/http/
+  A file in the real ~/.msf4 is not visible to snap-confined msfconsole.
+
+Recommended layout:
+
+  <msf-root>/modules/auxiliary/scanner/http/php2shell_exposure.rb
+  <msf-root>/spec/modules/auxiliary/scanner/http/php2shell_exposure_spec.rb
+
+If the framework tree is not writable (usual for the Kali package), put
+the module under:
+  ~/.msf4/modules/auxiliary/scanner/http/php2shell_exposure.rb
+
+For the snap build, use:
+  ~/snap/metasploit-framework/common/.msf4/modules/auxiliary/scanner/http/php2shell_exposure.rb
+
+
+------------------------------------------------------------------------
+5. INSTALLATION
+------------------------------------------------------------------------
+
+5.1 Automated (recommended)
+
+  cd /path/to/this/package
+  chmod +x install.sh
+
+  # Auto-detect: targets the framework tree used by the msfconsole on PATH,
+  # preferring its system tree and falling back to its per-user directory
+  # (~/.msf4 or the snap's common/.msf4):
+  ./install.sh
+
+  # Confirm msfconsole actually loads the module (launches msfconsole):
+  ./install.sh --verify
+
+  # Force a per-user install (no root):
+  ./install.sh --user
+
+  # Force a system install (run with sudo):
+  sudo ./install.sh --system
+
+  # Or point at a specific framework root:
+  MSF_ROOT=/opt/metasploit-framework sudo ./install.sh --system
+
+The installer validates the module with `ruby -c`, backs up any existing
+copy, prints the exact rspec command, and reports which framework tree and
+msfconsole it targeted. Use --verify to have it search for the module through
+msfconsole and fail loudly if the active console cannot see it (this catches
+the "installed into the wrong tree" case, e.g. snap vs system).
+
+Environment overrides:
+  MSF_ROOT=<framework tree>   Force the framework root.
+  MSF_USER_ROOT=<.msf4 dir>   Force the per-user directory.
+
+5.2 Manual
+
+  # System install
+  sudo cp php2shell_exposure.rb \
+    /usr/share/metasploit-framework/modules/auxiliary/scanner/http/
+
+  # Per-user install (system package)
+  mkdir -p ~/.msf4/modules/auxiliary/scanner/http
+  cp php2shell_exposure.rb \
+    ~/.msf4/modules/auxiliary/scanner/http/
+
+  # Per-user install (snap package)
+  mkdir -p ~/snap/metasploit-framework/common/.msf4/modules/auxiliary/scanner/http
+  cp php2shell_exposure.rb \
+    ~/snap/metasploit-framework/common/.msf4/modules/auxiliary/scanner/http/
+
+Then, in msfconsole, run `reload_all` (per-user modules load automatically
+on start, but reload after copying).
+
+
+------------------------------------------------------------------------
+6. USING THE MODULE
+------------------------------------------------------------------------
+
+6.1 Quick single-target check
+
+  msfconsole
+  use auxiliary/scanner/http/php2shell_exposure
+  set RHOSTS 10.0.0.10
+  set RPORT 443
+  set SSL true
+  set TARGETURI /
+  check
+
+`check` prints a CheckCode per host:
+  detected - PHP observed; the reason text states whether the disclosed
+             version is in the affected range or the version is concealed
+  safe     - disclosed version is at/above the fixed release, OR no PHP is
+             visible on this endpoint
+  unknown  - no HTTP response received
+
+6.2 Scanning multiple authorised hosts
+
+  set RHOSTS 10.0.0.0/24          # or a file: file:/tmp/authorised_hosts.txt
+  set THREADS 8
+  run
+
+6.3 Useful options
+
+  RHOSTS           One or more explicitly authorised targets.
+  RPORT            Target port (default 80).
+  SSL              true for HTTPS (default false).
+  TARGETURI        Base path of the PHP app (default "/").
+  VHOST            HTTP Host header, if the site is name-based.
+  CONNECT_TIMEOUT  Seconds to establish the connection (default 10).
+  READ_TIMEOUT     Seconds to wait for a response (default 20).
+  Proxies          Standard Metasploit proxy option.
+  HttpTrace        true to show raw HTTP (debugging).
+
+6.4 Example: HTTPS target with a path prefix
+
+  use auxiliary/scanner/http/php2shell_exposure
+  set RHOSTS 192.0.2.25
+  set RPORT 8443
+  set SSL true
+  set VHOST app.internal.example
+  set TARGETURI /portal/
+  set CONNECT_TIMEOUT 5
+  set READ_TIMEOUT 15
+  run
+
+6.5 Reading results in the database
+
+  hosts
+  services
+  notes -t php2shell.exposure
+  vulns
+  vulns -p 443
+
+The module reports:
+  * a service entry for the HTTP(S) service
+  * a note of type "php2shell.exposure" with the disclosed version(s),
+    evidence sources and a confidence value
+  * a vuln entry ONLY when a disclosed version falls inside the vendor's
+    affected range (name is tagged "version-based, exploitability
+    unconfirmed")
+
+
+------------------------------------------------------------------------
+7. INTERPRETING RESULTS (confidence and limitations)
+------------------------------------------------------------------------
+
+Confidence levels reported in the note:
+
+  medium  a PHP version WAS disclosed (X-Powered-By / Server) and
+          classified against the vendor matrix
+  low     PHP was detected but the version is concealed -> INCONCLUSIVE
+
+Verdicts:
+
+  "possibly exposed"  disclosed version < matching fixed release.
+                      Action: confirm the installed package/build locally.
+  "patched (version evidence)"  disclosed version >= fixed release.
+  "inconclusive"      PHP present, version hidden. The module will NOT
+                      guess. Treat as unknown until confirmed locally.
+
+FALSE POSITIVES (module says exposed, but host is patched):
+
+  * Distribution/LTS backports keep the upstream version string. A host
+    running "8.2.29-1ubuntu2" may already contain the vendor fix. The
+    module strips the distro suffix and compares the upstream number, so
+    it can report "affected" for a backported-and-patched build.
+  * A reverse proxy or CDN may replay a cached/forged X-Powered-By value.
+
+FALSE NEGATIVES (module says safe/nothing, but host is exposed):
+
+  * expose_php=Off hides X-Powered-By entirely (then the result is
+    "inconclusive", not "safe").
+  * Server/X-Powered-By may be rewritten or stripped by a proxy.
+  * A patched front-end may sit in front of an unpatched back-end PHP.
+  * Custom applications can remove/alter all version headers.
+
+Therefore: never treat a remote "safe/inconclusive" result as proof of
+safety, and never treat a remote "possibly exposed" result as proof of
+exploitability. Always confirm on the host:
+  php -v; php -i | grep -i "Core\|PHP Version"
+  dpkg -l | grep php         # Debian/Ubuntu package version (incl. backports)
+  rpm -qa | grep php         # RHEL family
+Also check the SAPI (mod_php / php-fpm / php-cgi / LiteSpeed / FrankenPHP)
+and whether temporary mitigations (session.upload_progress.enabled=0,
+fatal_error_backtraces=0, memory_limit=-1) are configured worker-wide.
+
+
+------------------------------------------------------------------------
+8. RUNNING THE TESTS
+------------------------------------------------------------------------
+
+The spec starts a local, in-process mock HTTP server and never contacts a
+real target.
+
+From the Metasploit Framework source tree (the spec uses its spec_helper):
+
+  cd /usr/share/metasploit-framework        # or /opt/metasploit-framework
+  bundle exec rspec spec/modules/auxiliary/scanner/http/php2shell_exposure_spec.rb
+
+If you installed with --user, point rspec at the installed copy:
+
+  cd /usr/share/metasploit-framework
+  bundle exec rspec ~/.msf4/spec/modules/auxiliary/scanner/http/php2shell_exposure_spec.rb
+
+Tests cover:
+  * version classification against the vendor matrix (affected/fixed/EOL)
+  * header-based version extraction (X-Powered-By, Server)
+  * end-to-end checks via the mock server: affected -> detected,
+    patched -> safe, hidden version -> detected (inconclusive),
+    non-PHP -> not_found
+
+
+------------------------------------------------------------------------
+9. TROUBLESHOOTING
+------------------------------------------------------------------------
+
+* Module not listed?  In msfconsole run:  reload_all
+  Confirm the file is named php2shell_exposure.rb and defines
+  `class MetasploitModule`.
+
+* "Failed to load module"  Run: ruby -c <path>/php2shell_exposure.rb
+  and check the file was not corrupted during copy.
+
+* No result / "unknown" for every host  Check RPORT/SSL/VHOST and whether
+  a proxy is required. Enable `set HttpTrace true` to inspect traffic.
+
+* Results differ from a local `php -v`  Expected: remote headers can be
+  stale, hidden, proxied or backpatched. Trust the local check.
+
+* rspec cannot find spec_helper  Run rspec from the framework root, not
+  from this package directory.
+
+
+------------------------------------------------------------------------
+10. LEGAL / ETHICAL
+------------------------------------------------------------------------
+
+Only scan hosts you are explicitly authorised to test. The scanner is
+non-destructive, but it still performs active requests. If you are unsure
+whether a behaviour is safe, do not run it against a production system.
+========================================================================
